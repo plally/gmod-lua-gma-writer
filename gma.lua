@@ -166,7 +166,7 @@ function GMA.Create(output, input, async, crc, callback)
 end
 
 local function ReadUntilNull(file, steps)
-	pos = file:Tell()
+	local pos = file:Tell()
 
 	local file_str = ""
 	local finished = false
