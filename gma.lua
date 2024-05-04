@@ -174,14 +174,14 @@ local function ReadUntilNull(file, steps)
 		local str = file:Read(steps)
 		local found = string.find(str, str_b0)
 		if found then
-			str = string.sub(str, 0, found)
+			str = string.sub(str, 0, found - 1)
 			finished = true
 		end
 
 		file_str = file_str .. str
 	end
 
-	file:Seek(pos + string.len(file_str))
+	file:Seek(pos + string.len(file_str) + 1) -- + 1 for the Null byte we remove from the String.
 
 	return file_str
 end
@@ -249,6 +249,7 @@ function GMA.Read(file_path, no_content, path)
 		.gma CRC
 	]]
 	tbl.CRC = f:ReadULong()
+	f:Close()
 
 	return tbl
 end
