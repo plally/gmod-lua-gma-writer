@@ -90,13 +90,12 @@ function GMA.PrePareFiles(tbl, path, files, async)
 	tbl.activeReads = 0
 	tbl.checkfile = function(file, status, content, id)
 		if status ~= FSASYNC_OK then
-			ErrorNoHaltWithStack("Failed to read " .. file .. " (Code: " .. tostring(status) .. ")")
-        else
-            tbl.files[file] = {
-                content = content, -- file.Read is slow
-                size = string.len(content) -- file.Size is slow.
-            }
+			error("Failed to read " .. file .. " (Code: " .. tostring(status) .. ")")
         end
+        tbl.files[file] = {
+            content = content, -- file.Read is slow
+            size = string.len(content) -- file.Size is slow.
+        }
 	end
 
 	local identifier = "GMA.PrePareFiles." .. path .. "-" .. CurTime()
@@ -113,12 +112,9 @@ function GMA.PrePareFiles(tbl, path, files, async)
 			file.AsyncRead(nextFile, "GAME", function(_, _, status, content)
 				tbl.activeReads = tbl.activeReads - 1
 
-				local err = tbl.checkfile(nextFile, status, content)
+				tbl.checkfile(nextFile, status, content)
 				if #tbl.queue == 0 and tbl.activeReads == 0 then
 					tbl.OnFinish(tbl.files)
-				end
-				if err then
-					error(err)
 				end
 			end)
 		end
@@ -134,10 +130,7 @@ function GMA.PrePareFiles(tbl, path, files, async)
             if not data then
                 status = FSASYNC_ERR_FILEOPEN
             end
-			local err = tbl.checkfile(ffile, status, data)
-			if err then
-				ErrorNoHaltWithStack(err)
-			end
+			tbl.checkfile(ffile, status, data)
 		end
 	end
 	if not async then
