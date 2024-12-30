@@ -86,7 +86,6 @@ function GMA.PrePareFiles(tbl, path, files, async)
 
 	tbl.files = {}
 	tbl.queue = {}
-	tbl.async = async
 	tbl.activeReads = 0
 	tbl.checkfile = function(file, status, content, id)
 		if status ~= FSASYNC_OK then
