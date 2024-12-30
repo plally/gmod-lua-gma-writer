@@ -90,14 +90,13 @@ function GMA.PrePareFiles(tbl, path, files, async)
 	tbl.activeReads = 0
 	tbl.checkfile = function(file, status, content, id)
 		if status ~= FSASYNC_OK then
-			-- return the error, we still need to call OnFinish if the last file failed
-			return "Failed to read " .. file .. " (Code: " .. tostring(status) .. ")"
-		end
-
-		tbl.files[file] = {
-			content = content, -- file.Read is slow
-			size = string.len(content) -- file.Size is slow.
-		}
+			ErrorNoHaltWithStack("Failed to read " .. file .. " (Code: " .. tostring(status) .. ")")
+        else
+            tbl.files[file] = {
+                content = content, -- file.Read is slow
+                size = string.len(content) -- file.Size is slow.
+            }
+        end
 	end
 
 	local identifier = "GMA.PrePareFiles." .. path .. "-" .. CurTime()
@@ -125,6 +124,7 @@ function GMA.PrePareFiles(tbl, path, files, async)
 		end
 	end)
 
+
 	for _, ffile in ipairs(files) do
 		if async then
 			table.insert(tbl.queue, ffile)
@@ -136,7 +136,7 @@ function GMA.PrePareFiles(tbl, path, files, async)
             end
 			local err = tbl.checkfile(ffile, status, data)
 			if err then
-				error(err)
+				ErrorNoHaltWithStack(err)
 			end
 		end
 	end
