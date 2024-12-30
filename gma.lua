@@ -24,7 +24,7 @@ function GMA.Build(output, name, description, path, files, crc, prepared)
 	f:Write(GMA.Addon.Indent) -- Ident (4)
 	f:WriteByte(GMA.Addon.Version)  -- Version (1)
 	f:WriteUInt64(0) -- SteamID (8) [unused]
-	f:WriteUInt64(system.SteamTime()) -- TimeStamp (8)
+	f:WriteUInt64(system.SteamTime() or os.time()) -- TimeStamp (8)
 	f:WriteByte(0) -- Required content (list of strings) [seems unused]
 	f:Write(name .. str_b0) -- Addon Name (n)
 	f:Write(description .. str_b0) -- Addon Description (n)
@@ -82,39 +82,71 @@ function GMA.PrePareFiles(tbl, path, files, async)
 
 	assert(tbl, "Missing table!")
 
-	tbl.done = false
+	local maxActiveReads = 500
+
 	tbl.files = {}
 	tbl.queue = {}
+	tbl.async = async
+	tbl.activeReads = 0
 	tbl.checkfile = function(file, status, content, id)
-		if status != FSASYNC_OK then
-			error("Failed to read " .. file .. " (Code: " .. tostring(status) .. ")")
+		if status ~= FSASYNC_OK then
+			-- return the error, we still need to call OnFinish if the last file failed
+			return "Failed to read " .. file .. " (Code: " .. tostring(status) .. ")"
 		end
 
 		tbl.files[file] = {
 			content = content, -- file.Read is slow
 			size = string.len(content) -- file.Size is slow.
 		}
-
-		table.remove(tbl.queue, id)
-		if #tbl.queue == 0 then
-			tbl.OnFinish(tbl.files)
-		end
 	end
 
-	for _, ffile in ipairs(files) do
-		local id = table.insert(tbl.queue, ffile)
-		if async then
-			file.AsyncRead(ffile, "GAME", function(_, _, status, content)
-				tbl.checkfile(ffile, status, content, id)
+	local identifier = "GMA.PrePareFiles." .. path .. "-" .. CurTime()
+	timer.Create(identifier, 0, 0, function()
+		if tbl.activeReads >= maxActiveReads then return end
+
+		for _ = 1, maxActiveReads - tbl.activeReads do
+			local nextFile = table.remove(tbl.queue, 1)
+			if not nextFile then
+				timer.Remove(identifier)
+				return
+			end
+			tbl.activeReads = tbl.activeReads + 1
+			file.AsyncRead(nextFile, "GAME", function(_, _, status, content)
+				tbl.activeReads = tbl.activeReads - 1
+
+				local err = tbl.checkfile(nextFile, status, content)
+				if #tbl.queue == 0 and tbl.activeReads == 0 then
+					tbl.OnFinish(tbl.files)
+				end
+				if err then
+					error(err)
+				end
 			end)
-		else
-			tbl.checkfile(ffile, FSASYNC_OK, file.Read(ffile, "GAME"), id)
 		end
+	end)
+
+	for _, ffile in ipairs(files) do
+		if async then
+			table.insert(tbl.queue, ffile)
+		else
+            local data = file.Read(ffile, "GAME")
+            local status = FSASYNC_OK
+            if not data then
+                status = FSASYNC_ERR_FILEOPEN
+            end
+			local err = tbl.checkfile(ffile, status, data)
+			if err then
+				error(err)
+			end
+		end
+	end
+	if not async then
+		tbl.OnFinish(tbl.files)
 	end
 end
 
 function GMA.FindFiles(tbl, path, ignore)
-	path = string.EndsWith(path, "/") and path or (path .. "/") 
+	path = string.EndsWith(path, "/") and path or (path .. "/")
 
 	local files, folders = file.Find(path .. "*", "GAME")
 	for _, file in ipairs(files) do
@@ -170,7 +202,7 @@ local function ReadUntilNull(file, steps)
 
 	local file_str = ""
 	local finished = false
-	while !finished do
+	while not finished do
 		local str = file:Read(steps)
 		local found = string.find(str, str_b0)
 		if found then
@@ -230,14 +262,14 @@ function GMA.Read(file_path, no_content, path)
 	--[[
 		File content
 	]]
-	if !no_content then
-		for k=1, #tbl.Files do
+	if not no_content then
+		for k = 1, #tbl.Files do
 			local file_tbl = tbl.Files[k]
 			file_tbl.Content = f:Read(file_tbl.Size)
 		end
 	else
 		local skip = 0
-		for k=1, #tbl.Files do
+		for k = 1, #tbl.Files do
 			local file_tbl = tbl.Files[k]
 			skip = skip + file_tbl.Size
 		end
@@ -253,6 +285,7 @@ function GMA.Read(file_path, no_content, path)
 
 	return tbl
 end
+
 
 --[[
 	Example
