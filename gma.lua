@@ -99,7 +99,8 @@ function GMA.PrePareFiles(tbl, path, files, async)
 	end
 
 	local identifier = "GMA.PrePareFiles." .. path .. "-" .. CurTime()
-	timer.Create(identifier, 0, 0, function()
+
+    local function queueFunc()
 		if tbl.activeReads >= maxActiveReads then return end
 
 		for _ = 1, maxActiveReads - tbl.activeReads do
@@ -118,7 +119,7 @@ function GMA.PrePareFiles(tbl, path, files, async)
 				end
 			end)
 		end
-	end)
+	end
 
 
 	for _, ffile in ipairs(files) do
@@ -133,7 +134,10 @@ function GMA.PrePareFiles(tbl, path, files, async)
 			tbl.checkfile(ffile, status, data)
 		end
 	end
-	if not async then
+
+    if async then
+        timer.Create(identifier, 0, 0, queueFunc)
+    else
 		tbl.OnFinish(tbl.files)
 	end
 end
