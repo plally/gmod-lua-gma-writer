@@ -263,13 +263,13 @@ function GMA.Read(file_path, no_content, path)
 		File content
 	]]
 	if not no_content then
-		for k = 1, #tbl.Files do
+		for k=1, #tbl.Files do
 			local file_tbl = tbl.Files[k]
 			file_tbl.Content = f:Read(file_tbl.Size)
 		end
 	else
 		local skip = 0
-		for k = 1, #tbl.Files do
+		for k=1, #tbl.Files do
 			local file_tbl = tbl.Files[k]
 			skip = skip + file_tbl.Size
 		end
